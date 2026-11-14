@@ -2,7 +2,7 @@
 
 const { EmbedBuilder } = require('discord.js');
 
-const COLOR = { blue: 0x5865f2, green: 0x57f287, red: 0xed4245, orange: 0xfee75c, gray: 0x99aab5 };
+const COLOR = { blue: 0x5865f2, green: 0x57f287, red: 0xed4245, gold: 0xf1c40f, gray: 0x99aab5 };
 
 function embed(color, title, desc) {
   const e = new EmbedBuilder().setColor(color).setTimestamp();
@@ -11,46 +11,57 @@ function embed(color, title, desc) {
   return e;
 }
 
-function fill(template, vars) {
-  return String(template || '').replace(/\{(\w+)\}/g, (m, k) => (k in vars ? String(vars[k]) : m));
+function fmtMoney(n) {
+  const m = Number(n) / 1_000_000;
+  const s = Number.isInteger(m) ? String(m) : m.toFixed(1);
+  return s + ' M€';
 }
 
-/* ¿Puede 'actor' actuar sobre 'target' (ban/kick/timeout/warn)? No sobre el dueño, no sobre alguien
-   con un rol igual o más alto, y el bot tiene que poder (su rol más alto por encima del target). */
-function canModerate(guild, actorMember, target, me) {
-  if (!target) return { ok: false, reason: 'Ese usuario no está en el servidor.' };
-  if (target.id === guild.ownerId) return { ok: false, reason: 'No puedo actuar sobre el dueño del servidor.' };
-  if (target.id === actorMember.id) return { ok: false, reason: 'No puedes usar esto sobre ti mismo.' };
-  if (actorMember.id !== guild.ownerId && target.roles.highest.comparePositionTo(actorMember.roles.highest) >= 0) {
-    return { ok: false, reason: 'Ese usuario tiene un rol igual o superior al tuyo.' };
-  }
-  if (target.roles.highest.comparePositionTo(me.roles.highest) >= 0) {
-    return { ok: false, reason: 'Ese usuario tiene un rol igual o superior al mío: no puedo actuar sobre él.' };
-  }
-  return { ok: true };
+/* Traduce los errores técnicos más comunes de discord.js/Discord a algo que un usuario entienda.
+   Nunca se les enseña el código o el texto original en inglés. */
+function friendlyError(e) {
+  const code = e && e.code;
+  const map = {
+    50001: 'No tengo acceso a ese canal. Pide a un administrador que me dé permiso para verlo.',
+    50013: 'Me falta un permiso para hacer eso aquí (revisa que pueda ver el canal, enviar mensajes, insertar enlaces y adjuntar archivos).',
+    50035: 'Algo de lo que mandé no es válido (puede ser un texto demasiado largo). Inténtalo de nuevo con un valor más corto.',
+    10008: 'Ese mensaje ya no existe (puede que lo borraran).',
+    10062: 'Se me pasó el tiempo para responder a esa interacción. Vuelve a intentarlo.',
+    40060: 'Esa acción ya se había procesado; no hace falta repetirla.',
+    160002: 'Ya hay un hilo abierto para eso.',
+  };
+  if (code && map[code]) return map[code];
+  if (e && e.message && /missing access/i.test(e.message)) return map[50001];
+  if (e && e.message && /missing permissions/i.test(e.message)) return map[50013];
+  return 'Algo falló al hacer eso. Si pasa otra vez, avisa a un administrador.';
 }
 
-async function logEvent(client, store, guildId, title, fields, color = COLOR.gray) {
+/* Responde (o sigue respondiendo) a una interacción sin crear errores de "ya se respondió",
+   y con los fallos ya traducidos al español. */
+async function safeReply(i, payload) {
   try {
-    const cfg = store.guild(guildId);
-    if (!cfg.logsChannel) return;
-    const guild = client.guilds.cache.get(guildId);
-    if (!guild) return;
-    const ch = guild.channels.cache.get(cfg.logsChannel);
-    if (!ch || !ch.isTextBased()) return;
-    const e = embed(color, title, null);
-    if (fields && fields.length) e.addFields(fields.map(([name, value]) => ({ name, value: String(value).slice(0, 1024) })));
-    await ch.send({ embeds: [e] }).catch(() => {});
-  } catch (_) { /* un fallo de logs nunca debe tumbar nada */ }
+    if (i.deferred) return await i.editReply(payload);
+    if (i.replied) return await i.followUp(payload);
+    return await i.reply(payload);
+  } catch (e) {
+    console.error('[discord] safeReply falló:', e.message);
+  }
 }
 
-function parseDuration(str, maxMs) {
-  const ms = require('ms');
-  let n;
-  try { n = ms(String(str)); } catch (_) { n = null; }
-  if (!n || typeof n !== 'number' || n <= 0) return null;
-  if (maxMs && n > maxMs) return null;
-  return n;
+async function safeError(i, e) {
+  console.error('[error]', e);
+  const content = '❌ ' + friendlyError(e);
+  try {
+    if (i.deferred || i.replied) await i.followUp({ content, flags: 64 });
+    else await i.reply({ content, flags: 64 });
+  } catch (_) { /* si ni eso funciona, ya no hay nada que hacer */ }
 }
 
-module.exports = { COLOR, embed, fill, canModerate, logEvent, parseDuration };
+const POSITIONS = ['POR', 'LD', 'DFC', 'LI', 'MCD', 'MC', 'MCO', 'MD', 'MI', 'DC'];
+const POSITION_NAMES = {
+  POR: 'Portero', LD: 'Lateral derecho', DFC: 'Defensa central', LI: 'Lateral izquierdo',
+  MCD: 'Mediocentro defensivo', MC: 'Mediocentro', MCO: 'Mediocentro ofensivo',
+  MD: 'Extremo derecho', MI: 'Extremo izquierdo', DC: 'Delantero centro',
+};
+
+module.exports = { COLOR, embed, fmtMoney, friendlyError, safeReply, safeError, POSITIONS, POSITION_NAMES };

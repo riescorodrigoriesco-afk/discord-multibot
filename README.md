@@ -1,89 +1,127 @@
-# Bot Discord multifunción
+# Ultimate Team — bot de Discord
 
-Bot para servidores de Discord con configuración independiente por servidor.
+Bot público de Discord, completamente en español, para organizar clubes, fichajes y
+temporadas de fútbol entre los miembros de un servidor. Construido con `discord.js` v14
+(comandos slash, botones, menús desplegables y formularios/modales) y Postgres como base de
+datos persistente (los datos no se pierden al reiniciar el bot).
 
-## Funciones incluidas
+## 1. Qué hace
 
-- Bienvenida en canal y mensaje privado al nuevo miembro.
-- Despedida en canal.
-- Autorol automático.
-- Canal de logs para eventos importantes.
-- Logs de entradas, salidas, mensajes editados/eliminados, cambios de roles/canales y moderación.
-- Moderación: `ban`, `kick`, `timeout`, `warn`, `warnings`, `clear`, `lock` y `unlock`.
-- Utilidades: `help`, `ping`, `server`, `user`, `avatar`, `poll`, `announce` y `remind`.
-- Configuración por servidor: `setwelcome`, `setgoodbye`, `setlogs`, `setautorole`, `config` y `resetconfig`.
-- Protección básica anti-enlaces configurable con `antilinks`.
+- **Inscripción de clubes** mediante un panel con botón "Inscribirme" (no un comando manual),
+  que abre un formulario para el nombre del club. Cada club empieza con 500 M de presupuesto.
+  Un usuario no puede tener más de un club, y no se permiten nombres repetidos.
+- **Catálogo de jugadores**: intenta traer datos de FUT-DB si hay `FUTDB_API_KEY` configurada;
+  si no está disponible, usa un catálogo de 40 "cartas de prueba" claramente marcadas como tal
+  (nunca se presentan como datos oficiales). Sincronizar el catálogo nunca borra jugadores ya
+  fichados ni estadísticas de temporadas anteriores.
+- **Panel de fichajes** con tres flujos: "Fichaje libre" (agentes libres, gratis), "Comprar"
+  (jugadores en venta, descuenta presupuesto) y "Rescindir" (solo tus propios jugadores,
+  vuelven al mercado sin reembolso). Se elige posición y se navegan las cartas (con su imagen
+  PNG) de una en una.
+- **`/plantilla`**: presupuesto y plantilla agrupada por posición.
+- **Temporadas**: `/temporada` genera Liga (todos contra todos) más Champions League y Europa
+  League (el resto de clubes se reparte entre las dos, por sorteo). Hacen falta al menos 4
+  clubes inscritos; si faltan, el bot dice cuántos hacen falta.
+- **Partidos**: `/jugar` disputa el siguiente partido pendiente de tu club, publica el
+  resultado con goleadores y asistencias (incluyendo en el canal configurado para resultados,
+  si hay uno) y guarda las estadísticas.
+- **`/tabla`** (clasificaciones de Liga/Champions/Europa League) y **`/premios`** (Balón de
+  Oro, Bota de Oro, Guante de Oro y Club del Año de la última temporada cerrada).
+- **`/finalizar-temporada`** (administradores, pide confirmación): calcula los premios y
+  bloquea nuevos partidos de esa temporada.
+- Canales configurables por función, acciones de administrador protegidas por el permiso
+  "Gestionar servidor", y errores siempre traducidos a mensajes claros en español (nunca
+  mensajes técnicos como "Missing Access").
 
-## Instalación local
-
-1. Instala Node.js 20 o superior.
-2. Ejecuta `npm install`.
-3. Copia `.env.example` como `.env`.
-4. Crea una aplicación en [Discord Developer Portal](https://discord.com/developers/applications).
-5. Copia el token en `DISCORD_TOKEN` y el Application ID en `CLIENT_ID`.
-   Si usas `DEV_GUILD_ID`, debe ser el ID numérico del servidor de Discord, no el nombre ni un ID de Replit. Si no es válido, los comandos se registran globalmente.
-6. En **Bot > Privileged Gateway Intents**, activa:
-   - Server Members Intent
-   - Message Content Intent
-7. Invita el bot con los scopes `bot` y `applications.commands`. Dale solo los permisos que realmente vaya a usar.
-8. Inicia el bot:
-
-   ```bash
-   npm start
-   ```
-
-   Al arrancar, el propio bot registra sus comandos slash automáticamente (globalmente, o en `DEV_GUILD_ID` si lo
-   configuraste). `npm run register` solo hace falta si quieres registrarlos sin arrancar el bot.
-
-## Seguridad
-
-El token es una contraseña. No lo pegues en chats, commits, capturas ni archivos públicos. En hosting usa una variable de entorno llamada `DISCORD_TOKEN`. Si el token se expone, regénéralo inmediatamente desde el Developer Portal.
-
-## Despliegue
-
-### GitHub
-
-Todo el repositorio es el bot (no hay subcarpeta). No subas `.env`, `data/guilds.json` ni `node_modules`; ya están
-protegidos por `.gitignore`.
-
-```bash
-git init
-git add .
-git commit -m "Añadir bot de Discord"
-git branch -M main
-git remote add origin https://github.com/TU_USUARIO/TU_REPOSITORIO.git
-git push -u origin main
-```
-
-### Hosting Node.js
+## 2. Instalación
 
 ```bash
 npm install
+```
+
+Variables de entorno (ver `.env.example`):
+
+| Variable | Obligatoria | Descripción |
+|---|---|---|
+| `DISCORD_BOT_TOKEN` | Sí | Token del bot. **Nunca se debe pegar en un chat ni en este README**; se configura como Secret en el panel del host (Render → Environment). |
+| `CLIENT_ID` | Sí | ID de la aplicación de Discord. |
+| `DATABASE_URL` | Sí | Cadena de conexión a Postgres. El bot crea su propio esquema `ultimate_team` dentro de esa base de datos, así que puede convivir con otros proyectos en el mismo Postgres. |
+| `FUTDB_API_KEY` | No | Clave de FUT-DB. Si falta o no es válida, el bot usa automáticamente el catálogo de cartas de prueba. |
+| `FUTDB_BASE_URL` | No | URL base de FUT-DB, por si cambia (por defecto `https://futdb.app/api`). |
+| `DEV_GUILD_ID` | No | ID de un servidor de pruebas para que los comandos se actualicen al instante ahí (además del registro global). |
+
+Arranque:
+
+```bash
 npm start
 ```
 
-Configura estas variables en el panel del host, no dentro de un archivo público:
+Al arrancar, el bot prepara el esquema de la base de datos (`db.migrate()`) y registra sus
+comandos slash automáticamente; no hace falta un paso de registro aparte.
 
-| Variable | Obligatoria | Valor |
-| --- | --- | --- |
-| `DISCORD_TOKEN` | Sí | Token del bot, guardado como secreto |
-| `CLIENT_ID` | Sí | Application ID del bot |
-| `DEV_GUILD_ID` | No | ID numérico del servidor para registrar comandos rápidamente |
+## 3. Invitar el bot a un servidor
 
-Configuración recomendada:
+El bot es público y se puede invitar a cualquier servidor. Desde el
+[portal de desarrolladores de Discord](https://discord.com/developers/applications), pestaña
+**OAuth2 → URL Generator**, hay que marcar los scopes `bot` y `applications.commands`, y estos
+permisos:
 
-- Build/install command: `npm install`
-- Start command: `npm start`
+- Ver canales
+- Enviar mensajes
+- Insertar enlaces
+- Adjuntar archivos
 
-`index.js` abre un pequeño servidor HTTP (puerto de la variable `PORT`, o 3000) que solo responde "Bot conectado./Bot
-arrancando…"; existe para que hosts de tipo **Web Service** (como Render) den por buena la comprobación de salud. Si
-tu host admite un **Worker/Background Service** sin puerto (Railway, por ejemplo), funciona igual sin usarlo.
+(permisos equivalentes al valor `52224`). Con la URL generada, cualquier administrador del
+servidor puede añadir el bot.
 
-### Docker
+**Importante sobre canales privados**: si el bot se usa en un canal privado o con permisos
+restringidos, **un administrador del servidor debe darle acceso manualmente** a ese canal
+concreto (ver canal, enviar mensajes, insertar enlaces y adjuntar archivos) desde los ajustes
+de permisos del canal. Si al bot le falta alguno de esos permisos en un canal, no mostrará un
+error técnico: explicará en español qué falta y qué debe hacer un administrador.
 
-También puedes ejecutar el archivo `Dockerfile`:
+## 4. Comandos
 
-```bash
-docker build -t discord-multibot .
-docker run --env-file .env discord-multibot
-```
+| Comando | Quién | Qué hace |
+|---|---|---|
+| `/panel inscripciones` | Admin | Publica el panel de inscripción de clubes en el canal actual. |
+| `/panel fichajes` | Admin | Publica el panel de fichajes (Fichaje libre / Comprar / Rescindir). |
+| `/config canal tipo:<fichajes\|inscripciones\|partidos\|resultados> canal:<#canal>` | Admin | Define el canal usado para esa función. |
+| `/config max-clubes cantidad:<n>` | Admin | Define el máximo de clubes inscribibles. |
+| `/config inscripciones abiertas:<true/false>` | Admin | Abre o cierra las inscripciones. |
+| `/actualizar-jugadores` | Admin | Sincroniza el catálogo de jugadores (FUT-DB o cartas de prueba). |
+| `/temporada` | Admin | Inicia una nueva temporada (Liga + Champions + Europa League). |
+| `/finalizar-temporada` | Admin | Cierra la temporada en curso (con confirmación) y calcula los premios. |
+| `/plantilla` | Todos | Muestra tu presupuesto y tu plantilla. |
+| `/jugar` | Todos | Disputa el siguiente partido pendiente de tu club. |
+| `/tabla [competicion]` | Todos | Muestra las clasificaciones. |
+| `/premios` | Todos | Muestra los premios de la última temporada cerrada. |
+
+## 5. Qué se verificó realmente antes de entregar esto
+
+Siguiendo la instrucción explícita de no afirmar que algo está probado sin haberlo verificado:
+
+- **Verificado de verdad** (con una base de datos real ejecutándose en este entorno, corriendo
+  el código tal cual, no una simulación en papel): inscripción de clubes (incluyendo rechazo de
+  usuario duplicado, nombre duplicado y cupo máximo), sincronización del catálogo de cartas de
+  prueba, fichaje libre (incluyendo que no se puede fichar dos veces al mismo agente libre),
+  compra con presupuesto suficiente (se descuenta exactamente el precio) y compra sin
+  presupuesto suficiente (se rechaza sin descontar nada), rescisión (sin reembolso, el jugador
+  vuelve al mercado, no se puede rescindir lo que no es tuyo), que resincronizar el catálogo no
+  borra ni desfícha jugadores ya fichados, generación de temporada (Liga + Champions/Europa,
+  exige un mínimo de clubes), simulación de todos los partidos de una temporada hasta el final,
+  que las estadísticas de goles de los jugadores cuadran exactamente con los marcadores,
+  cálculo de los 4 premios mínimos al finalizar la temporada, y que finalizar una temporada
+  libera el inicio de la siguiente.
+- **Verificado solo a nivel de código** (revisión manual + comprobación de sintaxis de cada
+  archivo), pero **no ejecutado de verdad contra Discord**: todo lo que depende de la propia
+  interfaz de Discord (botones, menús, formularios, generación de las imágenes PNG de las
+  cartas, mensajes de error traducidos). No tengo forma de abrir Discord y hacer clic en los
+  botones yo mismo desde aquí.
+- **No verificado todavía**: la integración real con FUT-DB (no encontré documentación pública
+  verificable de ese servicio; el adaptador está escrito para fallar con elegancia y caer al
+  catálogo de prueba si la API no responde como se espera, pero no he podido probarlo contra el
+  servicio real).
+
+Antes de dar por buena cualquiera de estas dos últimas partes, hace falta probarlas en un
+servidor de Discord real.
