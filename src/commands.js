@@ -2,13 +2,14 @@
 
 const {
   SlashCommandBuilder, PermissionFlagsBits, ChannelType,
-  ActionRowBuilder, ButtonBuilder, ButtonStyle,
+  ActionRowBuilder, ButtonBuilder, ButtonStyle, AttachmentBuilder,
 } = require('discord.js');
-const { embed, COLOR, fmtMoney, safeReply, safeError, POSITION_NAMES } = require('./helpers');
+const { embed, COLOR, fmtMoney, safeReply, safeError, POSITIONS, POSITION_NAMES } = require('./helpers');
 const economy = require('./economy');
 const futdb = require('./futdb');
 const competitions = require('./competitions');
 const panels = require('./panels');
+const cards = require('./cards');
 
 function isAdmin(interaction) {
   return Boolean(interaction.memberPermissions && interaction.memberPermissions.has(PermissionFlagsBits.ManageGuild));
@@ -150,6 +151,58 @@ const commands = [
       }
       const origen = r.source === 'futdb' ? 'FUT-DB (datos oficiales)' : 'cartas de prueba (FUT-DB no disponible)';
       await safeReply(i, { embeds: [embed(COLOR.green, '✅ Catálogo actualizado', 'Origen: **' + origen + '**\nJugadores en catálogo: **' + r.count + '**\n\nLos jugadores ya fichados y las estadísticas de temporadas anteriores no se tocan.')] });
+    },
+  },
+
+  // ---------- /crear-carta ----------
+  {
+    data: new SlashCommandBuilder()
+      .setName('crear-carta')
+      .setDescription('Crea una carta de jugador personalizada para el catálogo (solo administradores).')
+      .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
+      .addStringOption((o) => o.setName('nombre').setDescription('Nombre del jugador').setRequired(true).setMaxLength(80))
+      .addStringOption((o) => o.setName('posicion').setDescription('Posición').setRequired(true).addChoices(...POSITIONS.map((p) => ({ name: POSITION_NAMES[p] + ' (' + p + ')', value: p }))))
+      .addIntegerOption((o) => o.setName('valoracion').setDescription('Valoración general (1-99)').setRequired(true).setMinValue(1).setMaxValue(99))
+      .addIntegerOption((o) => o.setName('precio').setDescription('Precio en euros (0 = agente libre)').setRequired(true).setMinValue(0))
+      .addAttachmentOption((o) => o.setName('imagen').setDescription('Foto del jugador (opcional; si no se da, la carta usa un diseño genérico)'))
+      .addIntegerOption((o) => o.setName('ritmo').setDescription('RIT (por defecto, igual a la valoración)').setMinValue(1).setMaxValue(99))
+      .addIntegerOption((o) => o.setName('tiro').setDescription('TIR (por defecto, igual a la valoración)').setMinValue(1).setMaxValue(99))
+      .addIntegerOption((o) => o.setName('pase').setDescription('PAS (por defecto, igual a la valoración)').setMinValue(1).setMaxValue(99))
+      .addIntegerOption((o) => o.setName('regate').setDescription('REG (por defecto, igual a la valoración)').setMinValue(1).setMaxValue(99))
+      .addIntegerOption((o) => o.setName('defensa').setDescription('DEF (por defecto, igual a la valoración)').setMinValue(1).setMaxValue(99))
+      .addIntegerOption((o) => o.setName('fisico').setDescription('FÍS (por defecto, igual a la valoración)').setMinValue(1).setMaxValue(99)),
+    async execute(i) {
+      if (!(await requireAdmin(i))) return;
+      const imagen = i.options.getAttachment('imagen');
+      if (imagen && !/^image\//.test(imagen.contentType || '')) {
+        return safeReply(i, { content: '❌ El archivo adjunto tiene que ser una imagen (PNG, JPG, etc.).', flags: 64 });
+      }
+      const rating = i.options.getInteger('valoracion');
+      await i.deferReply();
+      const player = await futdb.createCustomCard(i.guildId, {
+        name: i.options.getString('nombre'),
+        position: i.options.getString('posicion'),
+        rating,
+        price: i.options.getInteger('precio'),
+        pace: i.options.getInteger('ritmo') ?? rating,
+        shooting: i.options.getInteger('tiro') ?? rating,
+        passing: i.options.getInteger('pase') ?? rating,
+        dribbling: i.options.getInteger('regate') ?? rating,
+        defending: i.options.getInteger('defensa') ?? rating,
+        physical: i.options.getInteger('fisico') ?? rating,
+        imageUrl: imagen ? imagen.url : null,
+      });
+      const buffer = await cards.renderPlayerCard(player);
+      const file = new AttachmentBuilder(buffer, { name: 'carta.png' });
+      const e = embed(COLOR.green, '✅ Carta creada', null)
+        .setImage('attachment://carta.png')
+        .addFields(
+          { name: 'Jugador', value: player.name, inline: true },
+          { name: 'Posición', value: POSITION_NAMES[player.position] + ' (' + player.position + ')', inline: true },
+          { name: 'Precio', value: player.price > 0 ? fmtMoney(player.price) : 'Agente libre', inline: true },
+        )
+        .setFooter({ text: 'Ya está disponible en el panel de fichajes, en su posición correspondiente.' });
+      await safeReply(i, { embeds: [e], files: [file] });
     },
   },
 

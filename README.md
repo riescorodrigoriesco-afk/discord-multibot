@@ -13,7 +13,9 @@ datos persistente (los datos no se pierden al reiniciar el bot).
 - **Catálogo de jugadores**: intenta traer datos de FUT-DB si hay `FUTDB_API_KEY` configurada;
   si no está disponible, usa un catálogo de 40 "cartas de prueba" claramente marcadas como tal
   (nunca se presentan como datos oficiales). Sincronizar el catálogo nunca borra jugadores ya
-  fichados ni estadísticas de temporadas anteriores.
+  fichados ni estadísticas de temporadas anteriores. Además, un administrador puede crear sus
+  propias cartas a mano con `/crear-carta` (nombre, posición, estadísticas, precio y, si quiere,
+  una imagen propia) para tener jugadores totalmente personalizados en el mercado.
 - **Panel de fichajes** con tres flujos: "Fichaje libre" (agentes libres, gratis), "Comprar"
   (jugadores en venta, descuenta presupuesto) y "Rescindir" (solo tus propios jugadores,
   vuelven al mercado sin reembolso). Se elige posición y se navegan las cartas (con su imagen
@@ -90,6 +92,7 @@ error técnico: explicará en español qué falta y qué debe hacer un administr
 | `/config max-clubes cantidad:<n>` | Admin | Define el máximo de clubes inscribibles. |
 | `/config inscripciones abiertas:<true/false>` | Admin | Abre o cierra las inscripciones. |
 | `/actualizar-jugadores` | Admin | Sincroniza el catálogo de jugadores (FUT-DB o cartas de prueba). |
+| `/crear-carta` | Admin | Crea a mano una carta de jugador personalizada (nombre, posición, valoración, estadísticas, precio e imagen opcional) y la añade al catálogo, sin depender de FUT-DB ni de las cartas de prueba. |
 | `/temporada` | Admin | Inicia una nueva temporada (Liga + Champions + Europa League). |
 | `/finalizar-temporada` | Admin | Cierra la temporada en curso (con confirmación) y calcula los premios. |
 | `/plantilla` | Todos | Muestra tu presupuesto y tu plantilla. |

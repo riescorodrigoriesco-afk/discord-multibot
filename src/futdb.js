@@ -133,4 +133,21 @@ async function syncCatalog(guildId) {
   return { ok: true, source, count: players.length };
 }
 
-module.exports = { syncCatalog, fetchFromFutDb, testCards };
+/* Crea una carta de jugador hecha a mano por un administrador (no es FUT-DB ni carta de
+   prueba: es contenido propio del servidor). La clave de catálogo lleva un prefijo "custom:"
+   único, así nunca puede chocar con las claves que genera syncCatalog ni ser tocada por él. */
+async function createCustomCard(guildId, data) {
+  const key = 'custom:' + Date.now().toString(36) + ':' + Math.random().toString(36).slice(2, 8);
+  const { rows } = await db.query(
+    `INSERT INTO players (guild_id, catalog_key, name, rating, position, pace, shooting, passing, dribbling, defending, physical, image_url, price, is_free_agent, is_test_card)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,FALSE) RETURNING *`,
+    [
+      guildId, key, data.name, data.rating, data.position,
+      data.pace, data.shooting, data.passing, data.dribbling, data.defending, data.physical,
+      data.imageUrl || null, data.price, data.price === 0,
+    ],
+  );
+  return rows[0];
+}
+
+module.exports = { syncCatalog, fetchFromFutDb, testCards, createCustomCard };
