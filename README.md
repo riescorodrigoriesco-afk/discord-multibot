@@ -26,17 +26,14 @@ Bot para servidores de Discord con configuración independiente por servidor.
    - Server Members Intent
    - Message Content Intent
 7. Invita el bot con los scopes `bot` y `applications.commands`. Dale solo los permisos que realmente vaya a usar.
-8. Registra los comandos:
-
-   ```bash
-   npm run register
-   ```
-
-9. Inicia el bot:
+8. Inicia el bot:
 
    ```bash
    npm start
    ```
+
+   Al arrancar, el propio bot registra sus comandos slash automáticamente (globalmente, o en `DEV_GUILD_ID` si lo
+   configuraste). `npm run register` solo hace falta si quieres registrarlos sin arrancar el bot.
 
 ## Seguridad
 
@@ -46,7 +43,8 @@ El token es una contraseña. No lo pegues en chats, commits, capturas ni archivo
 
 ### GitHub
 
-Sube únicamente la carpeta `discord-bot` a un repositorio. No subas `.env`, `data/guilds.json` ni `node_modules`; ya están protegidos por `.gitignore`.
+Todo el repositorio es el bot (no hay subcarpeta). No subas `.env`, `data/guilds.json` ni `node_modules`; ya están
+protegidos por `.gitignore`.
 
 ```bash
 git init
@@ -59,11 +57,8 @@ git push -u origin main
 
 ### Hosting Node.js
 
-En un host que tenga servicio Worker/Background:
-
 ```bash
 npm install
-npm run register
 npm start
 ```
 
@@ -79,10 +74,10 @@ Configuración recomendada:
 
 - Build/install command: `npm install`
 - Start command: `npm start`
-- Tipo de servicio: **Worker** o **Background Service**, no sitio web estático
-- El bot no necesita abrir un puerto HTTP.
 
-Para Render usa un **Background Worker**. Para Railway, crea un servicio desde este repositorio y usa `npm start`. En ambos casos, añade las tres variables anteriores en la sección de variables privadas.
+`index.js` abre un pequeño servidor HTTP (puerto de la variable `PORT`, o 3000) que solo responde "Bot conectado./Bot
+arrancando…"; existe para que hosts de tipo **Web Service** (como Render) den por buena la comprobación de salud. Si
+tu host admite un **Worker/Background Service** sin puerto (Railway, por ejemplo), funciona igual sin usarlo.
 
 ### Docker
 
